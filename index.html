@@ -23,8 +23,10 @@ h1{font-size:18px;font-weight:500;color:#7af;letter-spacing:2px;margin-bottom:8p
 #js-base{position:absolute;top:0;left:0;width:120px;height:120px;border-radius:50%;background:rgba(60,90,180,0.18);border:2px solid rgba(100,150,255,0.3)}
 #js-knob{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(80,130,220,0.55);border:2px solid rgba(140,190,255,0.7);top:36px;left:36px;pointer-events:none}
 #right-controls{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-#fire-btn{width:72px;height:72px;border-radius:50%;background:rgba(220,60,60,0.3);border:2.5px solid rgba(255,100,100,0.6);display:flex;align-items:center;justify-content:center;font-size:28px;touch-action:none;cursor:pointer}
-#fire-btn.active{background:rgba(220,60,60,0.65);border-color:rgba(255,180,180,0.9)}
+#shoot-joystick-wrap{position:relative;width:120px;height:120px;flex-shrink:0;touch-action:none;cursor:pointer}
+#sj-base{position:absolute;top:0;left:0;width:120px;height:120px;border-radius:50%;background:rgba(180,60,60,0.18);border:2px solid rgba(255,100,100,0.3)}
+#sj-knob{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(220,80,80,0.55);border:2px solid rgba(255,150,150,0.7);top:36px;left:36px;pointer-events:none}
+#sj-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;pointer-events:none}
 #sk-row{display:flex;gap:5px}
 .skb{width:52px;height:38px;border-radius:8px;background:rgba(40,60,120,0.35);border:1.5px solid rgba(80,120,200,0.4);display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;cursor:pointer}
 .skb.active{background:rgba(40,60,120,0.7)}
@@ -65,7 +67,11 @@ h1{font-size:18px;font-weight:500;color:#7af;letter-spacing:2px;margin-bottom:8p
       <div class="skb" id="skb2"><span class="skb-icon">🛡</span><span class="skb-cd" id="scd2">就緒</span></div>
       <div class="skb" id="skb3"><span class="skb-icon">❤️</span><span class="skb-cd" id="scd3">就緒</span></div>
     </div>
-    <div id="fire-btn">🔥</div>
+    <div id="shoot-joystick-wrap">
+      <div id="sj-base"></div>
+      <div id="sj-knob"></div>
+      <div id="sj-label">🔥</div>
+    </div>
   </div>
 </div>
 <div id="ov">
@@ -119,7 +125,7 @@ function ra(){AC.resume();}
 function startGame(){
   ra();
   gs='playing';wave=1;kills=0;goalK=wKG[0];
-  pl={x:W/2,y:H/2,r:12,hp:100,mhp:100,spd:2.5};
+  pl={x:W/2,y:H/2,r:12,hp:100,mhp:100,spd:1.5};
   buls=[];zoms=[];parts=[];fxs=[];bbuls=[];
   boss=null;bwarn=0;scd2=0;spt=0;shOn=false;shT=0;sfl=0;
   skCd=[0,0,0,0];autoAimAngle=0;
@@ -171,10 +177,10 @@ function spawnBoss(){
   snd('bapp');document.getElementById('bhud').style.display='';uHUD();
 }
 
+let shootAngle=0;
 function shoot(){
   if(gs!=='playing'||scd2>0) return;
-  const a=autoAimAngle;
-  buls.push({x:pl.x+Math.cos(a)*18,y:pl.y+Math.sin(a)*18,vx:Math.cos(a)*9,vy:Math.sin(a)*9,life:55});
+  buls.push({x:pl.x+Math.cos(shootAngle)*18,y:pl.y+Math.sin(shootAngle)*18,vx:Math.cos(shootAngle)*9,vy:Math.sin(shootAngle)*9,life:55});
   scd2=12;snd('shoot');
 }
 
@@ -352,7 +358,7 @@ function drawAll(){
   }
   buls.forEach(b=>{cx.fillStyle='#ff0';cx.beginPath();cx.arc(b.x,b.y,3.5,0,Math.PI*2);cx.fill();});
   if(shOn){cx.strokeStyle='rgba(100,150,255,'+(0.4+Math.sin(Date.now()/100)*.2)+')';cx.lineWidth=2.5;cx.beginPath();cx.arc(pl.x,pl.y,pl.r+7,0,Math.PI*2);cx.stroke();cx.lineWidth=1;}
-  cx.save();cx.translate(pl.x,pl.y);cx.rotate(autoAimAngle);
+  cx.save();cx.translate(pl.x,pl.y);cx.rotate(shootAngle);
   cx.fillStyle=shOn?'#88f':'#4af';cx.beginPath();cx.arc(0,0,pl.r,0,Math.PI*2);cx.fill();
   cx.fillStyle='#8df';cx.fillRect(3,-3,14,6);cx.restore();
   if(bwarn>0){
@@ -386,15 +392,14 @@ function setupControls(){
   const jR=60,kR=24;
   let jActive=false,jId=null;
 
-  function jMove(cx,cy){
+  function jMove(cx2,cy2){
     const rect=jw.getBoundingClientRect();
-    const ox=cx-rect.left-jR,oy=cy-rect.top-jR;
+    const ox=cx2-rect.left-jR,oy=cy2-rect.top-jR;
     const dist=Math.sqrt(ox*ox+oy*oy);
     const clamp=Math.min(dist,jR-kR);
     const nx=clamp===0?0:ox/dist*clamp;
     const ny=clamp===0?0:oy/dist*clamp;
-    knob.style.left=(jR-kR+nx)+'px';
-    knob.style.top=(jR-kR+ny)+'px';
+    knob.style.left=(jR-kR+nx)+'px';knob.style.top=(jR-kR+ny)+'px';
     const nx2=nx/(jR-kR)||0,ny2=ny/(jR-kR)||0;
     dpad.left=nx2<-0.2;dpad.right=nx2>0.2;
     dpad.up=ny2<-0.2;dpad.down=ny2>0.2;
@@ -405,33 +410,44 @@ function setupControls(){
     dpad.left=dpad.right=dpad.up=dpad.down=false;
     jActive=false;jId=null;
   }
-
-  jw.addEventListener('touchstart',e=>{
-    e.preventDefault();ra();
-    const t=e.changedTouches[0];jId=t.identifier;jActive=true;jMove(t.clientX,t.clientY);
-  },{passive:false});
-  jw.addEventListener('touchmove',e=>{
-    e.preventDefault();
-    for(const t of e.changedTouches){if(t.identifier===jId){jMove(t.clientX,t.clientY);break;}}
-  },{passive:false});
-  jw.addEventListener('touchend',e=>{
-    e.preventDefault();
-    for(const t of e.changedTouches){if(t.identifier===jId){jReset();break;}}
-  },{passive:false});
+  jw.addEventListener('touchstart',e=>{e.preventDefault();ra();const t=e.changedTouches[0];jId=t.identifier;jActive=true;jMove(t.clientX,t.clientY);},{passive:false});
+  jw.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches){if(t.identifier===jId){jMove(t.clientX,t.clientY);break;}}},{passive:false});
+  jw.addEventListener('touchend',e=>{e.preventDefault();for(const t of e.changedTouches){if(t.identifier===jId){jReset();break;}}},{passive:false});
   jw.addEventListener('touchcancel',e=>{e.preventDefault();jReset();},{passive:false});
   jw.addEventListener('mousedown',e=>{ra();jActive=true;jMove(e.clientX,e.clientY);});
   document.addEventListener('mousemove',e=>{if(jActive)jMove(e.clientX,e.clientY);});
   document.addEventListener('mouseup',()=>{if(jActive)jReset();});
 
-  const fire=document.getElementById('fire-btn');
-  const fon=e=>{e.preventDefault();ra();firing=true;fire.classList.add('active');};
-  const foff=e=>{e.preventDefault();firing=false;fire.classList.remove('active');};
-  fire.addEventListener('touchstart',fon,{passive:false});
-  fire.addEventListener('touchend',foff,{passive:false});
-  fire.addEventListener('touchcancel',foff,{passive:false});
-  fire.addEventListener('mousedown',fon);
-  fire.addEventListener('mouseup',foff);
-  fire.addEventListener('mouseleave',foff);
+  const sj=document.getElementById('shoot-joystick-wrap');
+  const sknob=document.getElementById('sj-knob');
+  let sjActive=false,sjId=null;
+
+  function sjMove(cx2,cy2){
+    const rect=sj.getBoundingClientRect();
+    const ox=cx2-rect.left-jR,oy=cy2-rect.top-jR;
+    const dist=Math.sqrt(ox*ox+oy*oy);
+    const clamp=Math.min(dist,jR-kR);
+    const nx=clamp===0?0:ox/dist*clamp;
+    const ny=clamp===0?0:oy/dist*clamp;
+    sknob.style.left=(jR-kR+nx)+'px';sknob.style.top=(jR-kR+ny)+'px';
+    const nx2=nx/(jR-kR)||0,ny2=ny/(jR-kR)||0;
+    if(Math.sqrt(nx2*nx2+ny2*ny2)>0.25){
+      shootAngle=Math.atan2(ny2,nx2);firing=true;
+    } else {
+      firing=false;
+    }
+  }
+  function sjReset(){
+    sknob.style.left=(jR-kR)+'px';sknob.style.top=(jR-kR)+'px';
+    firing=false;sjActive=false;sjId=null;
+  }
+  sj.addEventListener('touchstart',e=>{e.preventDefault();ra();const t=e.changedTouches[0];sjId=t.identifier;sjActive=true;sjMove(t.clientX,t.clientY);},{passive:false});
+  sj.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches){if(t.identifier===sjId){sjMove(t.clientX,t.clientY);break;}}},{passive:false});
+  sj.addEventListener('touchend',e=>{e.preventDefault();for(const t of e.changedTouches){if(t.identifier===sjId){sjReset();break;}}},{passive:false});
+  sj.addEventListener('touchcancel',e=>{e.preventDefault();sjReset();},{passive:false});
+  sj.addEventListener('mousedown',e=>{ra();sjActive=true;sjMove(e.clientX,e.clientY);});
+  document.addEventListener('mousemove',e=>{if(sjActive)sjMove(e.clientX,e.clientY);});
+  document.addEventListener('mouseup',()=>{if(sjActive)sjReset();});
 
   for(let i=0;i<4;i++){
     const b=document.getElementById('skb'+i);
