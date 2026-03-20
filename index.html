@@ -98,6 +98,9 @@ let skCd=[0,0,0,0];
 let dpad={up:false,down:false,left:false,right:false};
 let firing=false;
 let autoAimAngle=0;
+let shootAngle=0;
+let startTime=0,bestStreak=0,curStreak=0,winTime=0;
+let winAnimId=null,winFrame=0;
 const AC=new(window.AudioContext||window.webkitAudioContext)();
 
 function snd(t){
@@ -128,7 +131,10 @@ function startGame(){
   pl={x:W/2,y:H/2,r:12,hp:100,mhp:100,spd:1.0};
   buls=[];zoms=[];parts=[];fxs=[];bbuls=[];
   boss=null;bwarn=0;scd2=0;spt=0;shOn=false;shT=0;sfl=0;
-  skCd=[0,0,0,0];autoAimAngle=0;
+  skCd=[0,0,0,0];autoAimAngle=0;shootAngle=0;
+  startTime=Date.now();bestStreak=0;curStreak=0;
+  if(winAnimId){cancelAnimationFrame(winAnimId);winAnimId=null;}
+  document.getElementById('ov').style.cssText='';
   document.getElementById('ov').style.display='none';
   document.getElementById('bhud').style.display='none';
   uHUD();uSkUI();cancelAnimationFrame(fid);loop();
@@ -177,7 +183,6 @@ function spawnBoss(){
   snd('bapp');document.getElementById('bhud').style.display='';uHUD();
 }
 
-let shootAngle=0;
 function shoot(){
   if(gs!=='playing'||scd2>0) return;
   buls.push({x:pl.x+Math.cos(shootAngle)*18,y:pl.y+Math.sin(shootAngle)*18,vx:Math.cos(shootAngle)*9,vy:Math.sin(shootAngle)*9,life:55});
@@ -304,7 +309,7 @@ function update(){
       if(z.dead||b.life<=0) return;
       if(Math.hypot(b.x-z.x,b.y-z.y)<z.r){
         z.hp--;b.life=0;pts(z.x,z.y,'#f55',3);
-        if(z.hp<=0){z.dead=true;kills++;snd('kill');pts(z.x,z.y,'#3f3',5);uHUD();}else snd('hit');
+        if(z.hp<=0){z.dead=true;kills++;curStreak++;if(curStreak>bestStreak)bestStreak=curStreak;snd('kill');pts(z.x,z.y,'#3f3',5);uHUD();}else{curStreak=0;snd('hit');}
       }
     });
   });
@@ -379,11 +384,62 @@ function gameOver(){
 }
 function winGame(){
   gs='win';cancelAnimationFrame(fid);
-  document.getElementById('omsg').textContent='恭喜通關！🎉';
-  document.getElementById('osub').textContent='魔王已消滅！你是殭屍獵人！';
+  winTime=Math.floor((Date.now()-startTime)/1000);
+  winFrame=0;
+  const mins=Math.floor(winTime/60);
+  const secs=winTime%60;
+  const timeStr=mins>0?mins+'分'+secs+'秒':secs+'秒';
+  function drawWin(){
+    winFrame++;
+    const t=winFrame;
+    cx.fillStyle='#0a0a1a';cx.fillRect(0,0,W,H);
+    for(let i=0;i<18;i++){
+      const a=(i/18)*Math.PI*2+t*0.02;
+      const r=100+Math.sin(t*0.05+i)*15;
+      cx.fillStyle='hsla('+(i*20+t*2)+',80%,60%,0.18)';
+      cx.beginPath();cx.arc(W/2+Math.cos(a)*r,H/2+Math.sin(a)*r,8,0,Math.PI*2);cx.fill();
+    }
+    const confColors=['#f44','#4f4','#44f','#ff0','#f0f','#0ff'];
+    for(let i=0;i<30;i++){
+      const cx2=((i*137+t*3)%W);
+      const cy2=((i*97+t*(1+i%3))%H);
+      cx.fillStyle=confColors[i%6];
+      cx.save();cx.translate(cx2,cy2);cx.rotate(t*0.05+i);
+      cx.fillRect(-4,-4,8,4);cx.restore();
+    }
+    cx.save();cx.translate(W/2,H/2+10);
+    const bounce=Math.abs(Math.sin(t*0.08))*18;
+    const arm=Math.sin(t*0.12)*35;
+    const leg=Math.sin(t*0.1)*20;
+    cx.translate(0,-bounce);
+    cx.fillStyle='#4af';cx.beginPath();cx.arc(0,-52,16,0,Math.PI*2);cx.fill();
+    cx.fillStyle='#8df';cx.beginPath();cx.arc(0,-52,10,0,Math.PI*2);cx.fill();
+    cx.fillStyle='#ff0';cx.beginPath();cx.arc(0,-52,5,0,Math.PI*2);cx.fill();
+    cx.strokeStyle='#4af';cx.lineWidth=7;cx.lineCap='round';
+    cx.beginPath();cx.moveTo(0,-36);cx.lineTo(0,8);cx.stroke();
+    cx.beginPath();cx.moveTo(0,-20);cx.lineTo(Math.cos(arm*Math.PI/180)*28,Math.sin(arm*Math.PI/180)*28-20);cx.stroke();
+    cx.beginPath();cx.moveTo(0,-20);cx.lineTo(-Math.cos(arm*Math.PI/180)*28,Math.sin(arm*Math.PI/180)*28-20);cx.stroke();
+    cx.beginPath();cx.moveTo(0,8);cx.lineTo(Math.sin(leg*Math.PI/180)*20,28);cx.stroke();
+    cx.beginPath();cx.moveTo(0,8);cx.lineTo(-Math.sin(leg*Math.PI/180)*20,28);cx.stroke();
+    cx.restore();
+    cx.textAlign='center';
+    cx.fillStyle='#ff0';cx.font='bold 26px sans-serif';
+    cx.fillText('通關！🎉',W/2,38);
+    cx.fillStyle='rgba(0,0,0,0.45)';cx.fillRect(W/2-110,H-95,220,85);
+    cx.strokeStyle='rgba(255,220,0,0.4)';cx.lineWidth=1.5;cx.strokeRect(W/2-110,H-95,220,85);
+    cx.fillStyle='#aaa';cx.font='12px sans-serif';cx.fillText('通關時間',W/2-54,H-72);
+    cx.fillStyle='#fff';cx.font='bold 18px sans-serif';cx.fillText(timeStr,W/2-54,H-50);
+    cx.fillStyle='#aaa';cx.font='12px sans-serif';cx.fillText('最高連殺',W/2+54,H-72);
+    cx.fillStyle='#ff0';cx.font='bold 18px sans-serif';cx.fillText(bestStreak+'連殺',W/2+54,H-50);
+    cx.fillStyle='#7af';cx.font='13px sans-serif';cx.fillText('擊殺 '+kills+' 隻殭屍',W/2,H-25);
+    winAnimId=requestAnimationFrame(drawWin);
+  }
+  drawWin();
+  document.getElementById('omsg').textContent='';
+  document.getElementById('osub').textContent='';
   document.getElementById('obtn').textContent='再玩一次';
-  document.getElementById('ov').style.display='';
-  uSkUI();drawAll();
+  document.getElementById('ov').style.cssText='display:block;width:100%;max-width:360px;margin-top:8px;text-align:center;padding:8px 16px;background:transparent;border:none';
+  uSkUI();
 }
 
 function setupControls(){
