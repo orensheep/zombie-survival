@@ -133,11 +133,12 @@ function startGame(){
   boss=null;bwarn=0;scd2=0;spt=0;shOn=false;shT=0;sfl=0;
   skCd=[0,0,0,0];autoAimAngle=0;shootAngle=0;
   startTime=Date.now();bestStreak=0;curStreak=0;
+  lastTime=performance.now();accum=0;
   if(winAnimId){cancelAnimationFrame(winAnimId);winAnimId=null;}
   document.getElementById('ov').style.cssText='';
   document.getElementById('ov').style.display='none';
   document.getElementById('bhud').style.display='none';
-  uHUD();uSkUI();cancelAnimationFrame(fid);loop();
+  uHUD();uSkUI();cancelAnimationFrame(fid);fid=requestAnimationFrame(loop);
 }
 
 function uHUD(){
@@ -271,9 +272,18 @@ function updBoss(){
   });
 }
 
-function loop(){
+let lastTime=0;
+const TICK=1000/60;
+let accum=0;
+
+function loop(now){
   if(gs!=='playing') return;
-  update();drawAll();fid=requestAnimationFrame(loop);
+  const dt=Math.min(now-lastTime,100);
+  lastTime=now;
+  accum+=dt;
+  while(accum>=TICK){update();accum-=TICK;}
+  drawAll();
+  fid=requestAnimationFrame(loop);
 }
 
 function update(){
