@@ -19,14 +19,9 @@ h1{font-size:18px;font-weight:500;color:#7af;letter-spacing:2px;margin-bottom:8p
 #bhb{height:100%;background:#f44;border-radius:4px}
 #cv{border:1px solid #334;border-radius:6px;display:block;touch-action:none}
 #bottom{display:flex;justify-content:space-between;align-items:flex-end;width:100%;max-width:360px;margin-top:10px;padding:0 4px}
-#dpad{position:relative;width:120px;height:120px;flex-shrink:0}
-.dp{position:absolute;width:38px;height:38px;border-radius:8px;background:rgba(80,120,200,0.25);border:1.5px solid rgba(100,150,255,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(180,210,255,0.8);touch-action:none;cursor:pointer}
-.dp.active{background:rgba(80,120,200,0.55);border-color:rgba(150,200,255,0.8)}
-#dp-up{top:0;left:41px}
-#dp-down{bottom:0;left:41px}
-#dp-left{top:41px;left:0}
-#dp-right{top:41px;right:0}
-#dp-mid{top:41px;left:41px;border-radius:50%;background:rgba(60,90,160,0.2)}
+#joystick-wrap{position:relative;width:120px;height:120px;flex-shrink:0;touch-action:none;cursor:pointer}
+#js-base{position:absolute;top:0;left:0;width:120px;height:120px;border-radius:50%;background:rgba(60,90,180,0.18);border:2px solid rgba(100,150,255,0.3)}
+#js-knob{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(80,130,220,0.55);border:2px solid rgba(140,190,255,0.7);top:36px;left:36px;pointer-events:none}
 #right-controls{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 #fire-btn{width:72px;height:72px;border-radius:50%;background:rgba(220,60,60,0.3);border:2.5px solid rgba(255,100,100,0.6);display:flex;align-items:center;justify-content:center;font-size:28px;touch-action:none;cursor:pointer}
 #fire-btn.active{background:rgba(220,60,60,0.65);border-color:rgba(255,180,180,0.9)}
@@ -59,12 +54,9 @@ h1{font-size:18px;font-weight:500;color:#7af;letter-spacing:2px;margin-bottom:8p
 </div>
 <canvas id="cv" width="360" height="320" tabindex="0"></canvas>
 <div id="bottom">
-  <div id="dpad">
-    <div class="dp" id="dp-up">▲</div>
-    <div class="dp" id="dp-down">▼</div>
-    <div class="dp" id="dp-left">◀</div>
-    <div class="dp" id="dp-right">▶</div>
-    <div class="dp" id="dp-mid"></div>
+  <div id="joystick-wrap">
+    <div id="js-base"></div>
+    <div id="js-knob"></div>
   </div>
   <div id="right-controls">
     <div id="sk-row">
@@ -78,7 +70,7 @@ h1{font-size:18px;font-weight:500;color:#7af;letter-spacing:2px;margin-bottom:8p
 </div>
 <div id="ov">
   <div id="omsg">殭屍生存戰</div>
-  <div id="osub">第1、2關消滅殭屍<br>第3關打倒魔王！<br>D-pad 移動，🔥 射擊（自動瞄準）</div>
+  <div id="osub">第1、2關消滅殭屍<br>第3關打倒魔王！<br>左搖桿移動，🔥 射擊</div>
   <button id="obtn">開始遊戲</button>
 </div>
 <div id="hint">電腦：WASD 移動 | 空白鍵 射擊 | 1~4 技能</div>
@@ -179,20 +171,11 @@ function spawnBoss(){
   snd('bapp');document.getElementById('bhud').style.display='';uHUD();
 }
 
-function getAutoAim(){
-  let best=null,bd=9999;
-  if(boss){bd=Math.hypot(boss.x-pl.x,boss.y-pl.y);best=boss;}
-  zoms.forEach(z=>{const d=Math.hypot(z.x-pl.x,z.y-pl.y);if(d<bd){bd=d;best=z;}});
-  if(best) return Math.atan2(best.y-pl.y,best.x-pl.x);
-  return autoAimAngle;
-}
-
 function shoot(){
   if(gs!=='playing'||scd2>0) return;
-  const a=getAutoAim();
-  autoAimAngle=a;
+  const a=autoAimAngle;
   buls.push({x:pl.x+Math.cos(a)*18,y:pl.y+Math.sin(a)*18,vx:Math.cos(a)*9,vy:Math.sin(a)*9,life:55});
-  scd2=6;snd('shoot');
+  scd2=12;snd('shoot');
 }
 
 function useSkill(i){
@@ -286,7 +269,11 @@ function update(){
   const ddx=(dpad.right?1:0)-(dpad.left?1:0);
   const ddy=(dpad.down?1:0)-(dpad.up?1:0);
   const l=Math.sqrt(ddx*ddx+ddy*ddy)||1;
-  if(ddx||ddy){pl.x=Math.max(pl.r,Math.min(W-pl.r,pl.x+ddx/l*pl.spd));pl.y=Math.max(pl.r,Math.min(H-pl.r,pl.y+ddy/l*pl.spd));}
+  if(ddx||ddy){
+    pl.x=Math.max(pl.r,Math.min(W-pl.r,pl.x+ddx/l*pl.spd));
+    pl.y=Math.max(pl.r,Math.min(H-pl.r,pl.y+ddy/l*pl.spd));
+    autoAimAngle=Math.atan2(ddy,ddx);
+  }
   if(scd2>0) scd2--;
   skCd=skCd.map(c=>Math.max(0,c-1));
   if(shT>0){shT--;if(shT<=0)shOn=false;}
@@ -394,20 +381,48 @@ function winGame(){
 }
 
 function setupControls(){
-  const dirs={
-    'dp-up':'up','dp-down':'down','dp-left':'left','dp-right':'right'
-  };
-  Object.entries(dirs).forEach(([id,k])=>{
-    const el=document.getElementById(id);
-    const on=e=>{e.preventDefault();ra();dpad[k]=true;el.classList.add('active');};
-    const off=e=>{e.preventDefault();dpad[k]=false;el.classList.remove('active');};
-    el.addEventListener('touchstart',on,{passive:false});
-    el.addEventListener('touchend',off,{passive:false});
-    el.addEventListener('touchcancel',off,{passive:false});
-    el.addEventListener('mousedown',on);
-    el.addEventListener('mouseup',off);
-    el.addEventListener('mouseleave',off);
-  });
+  const jw=document.getElementById('joystick-wrap');
+  const knob=document.getElementById('js-knob');
+  const jR=60,kR=24;
+  let jActive=false,jId=null;
+
+  function jMove(cx,cy){
+    const rect=jw.getBoundingClientRect();
+    const ox=cx-rect.left-jR,oy=cy-rect.top-jR;
+    const dist=Math.sqrt(ox*ox+oy*oy);
+    const clamp=Math.min(dist,jR-kR);
+    const nx=clamp===0?0:ox/dist*clamp;
+    const ny=clamp===0?0:oy/dist*clamp;
+    knob.style.left=(jR-kR+nx)+'px';
+    knob.style.top=(jR-kR+ny)+'px';
+    const nx2=nx/(jR-kR)||0,ny2=ny/(jR-kR)||0;
+    dpad.left=nx2<-0.2;dpad.right=nx2>0.2;
+    dpad.up=ny2<-0.2;dpad.down=ny2>0.2;
+    if(Math.abs(nx2)>0.1||Math.abs(ny2)>0.1) autoAimAngle=Math.atan2(ny2,nx2);
+  }
+  function jReset(){
+    knob.style.left=(jR-kR)+'px';knob.style.top=(jR-kR)+'px';
+    dpad.left=dpad.right=dpad.up=dpad.down=false;
+    jActive=false;jId=null;
+  }
+
+  jw.addEventListener('touchstart',e=>{
+    e.preventDefault();ra();
+    const t=e.changedTouches[0];jId=t.identifier;jActive=true;jMove(t.clientX,t.clientY);
+  },{passive:false});
+  jw.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){if(t.identifier===jId){jMove(t.clientX,t.clientY);break;}}
+  },{passive:false});
+  jw.addEventListener('touchend',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){if(t.identifier===jId){jReset();break;}}
+  },{passive:false});
+  jw.addEventListener('touchcancel',e=>{e.preventDefault();jReset();},{passive:false});
+  jw.addEventListener('mousedown',e=>{ra();jActive=true;jMove(e.clientX,e.clientY);});
+  document.addEventListener('mousemove',e=>{if(jActive)jMove(e.clientX,e.clientY);});
+  document.addEventListener('mouseup',()=>{if(jActive)jReset();});
+
   const fire=document.getElementById('fire-btn');
   const fon=e=>{e.preventDefault();ra();firing=true;fire.classList.add('active');};
   const foff=e=>{e.preventDefault();firing=false;fire.classList.remove('active');};
@@ -417,12 +432,14 @@ function setupControls(){
   fire.addEventListener('mousedown',fon);
   fire.addEventListener('mouseup',foff);
   fire.addEventListener('mouseleave',foff);
+
   for(let i=0;i<4;i++){
     const b=document.getElementById('skb'+i);
     const tap=e=>{e.preventDefault();ra();useSkill(i);b.classList.add('active');setTimeout(()=>b.classList.remove('active'),150);};
     b.addEventListener('touchstart',tap,{passive:false});
     b.addEventListener('mousedown',tap);
   }
+
   document.addEventListener('keydown',e=>{
     if(e.key==='ArrowUp'||e.key==='w'||e.key==='W') dpad.up=true;
     if(e.key==='ArrowDown'||e.key==='s'||e.key==='S') dpad.down=true;
